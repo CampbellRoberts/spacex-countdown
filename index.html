@@ -15,21 +15,21 @@
   h1 {
     text-align: center;
     padding: 20px 0;
-    font-size: 2.5em;
+    font-size: 2.4em;
   }
   #launchWrapper {
     height: calc(100vh - 80px);
     overflow: hidden;
     position: relative;
   }
-  #launchList, #launchListClone {
+  .launchList {
     position: absolute;
     width: 100%;
   }
   .launch {
     text-align: center;
     font-size: 1.5em;
-    padding: 15px 0;
+    padding: 12px 0;
     border-bottom: 1px solid white;
   }
 </style>
@@ -37,78 +37,78 @@
 <body>
 <h1>Upcoming SpaceX Launches</h1>
 <div id="launchWrapper">
-  <div id="launchList"></div>
+  <div id="launchList" class="launchList"></div>
 </div>
 
 <script>
-// Fetch upcoming launches
+// Fetch upcoming launches from SpaceX API
 async function fetchLaunches() {
     try {
         const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
-        let launches = await res.json();
-        // Filter out past launches just in case
-        launches = launches.filter(l => new Date(l.date_utc) > new Date());
-        // Sort by date ascending
-        launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
-        return launches;
-    } catch(e) {
-        console.error("Failed to fetch SpaceX launches:", e);
+        const launches = await res.json();
+        // Only keep future ones and sort them
+        const future = launches
+            .filter(l => new Date(l.date_utc) > new Date())
+            .sort((a, b) => new Date(a.date_utc) - new Date(b.date_utc));
+        return future;
+    } catch (e) {
+        console.error("Error fetching launches:", e);
         return [];
     }
 }
 
 // Build the scrolling list
 async function buildList() {
-    const launches = await fetchLaunches();
+    const data = await fetchLaunches();
     const list = document.getElementById('launchList');
-    list.innerHTML = ''; // clear previous content
+    list.innerHTML = '';
 
-    // If API returns empty, use fallback placeholder launches
-    const fallback = [
-        {name:"Starlink 1", date_utc: new Date(Date.now() + 3600*1000).toISOString()},
-        {name:"Starship Test", date_utc: new Date(Date.now() + 7200*1000).toISOString()}
-    ];
-    const data = launches.length ? launches : fallback;
+    if (data.length === 0) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'launch';
+        errorDiv.textContent = "No upcoming launches available right now";
+        list.appendChild(errorDiv);
+        return;
+    }
 
-    // Create list items
     data.forEach(launch => {
         const div = document.createElement('div');
         div.className = 'launch';
-        const date = new Date(launch.date_utc);
-        div.textContent = `${launch.name} - ${date.toLocaleString()}`;
+        const launchTime = new Date(launch.date_utc).toLocaleString();
+        div.textContent = `${launch.name} – ${launchTime}`;
         list.appendChild(div);
     });
 
     // Remove old clone if exists
     const oldClone = document.getElementById('launchListClone');
-    if(oldClone) oldClone.remove();
+    if (oldClone) oldClone.remove();
 
-    // Duplicate for seamless scrolling
-    const listClone = list.cloneNode(true);
-    listClone.id = 'launchListClone';
-    list.appendChild(listClone);
+    // Duplicate list for smooth scrolling
+    const clone = list.cloneNode(true);
+    clone.id = 'launchListClone';
+    list.appendChild(clone);
 
     autoScroll();
 }
 
-// Smooth scrolling
+// Smooth infinite scroll
 function autoScroll() {
     const list = document.getElementById('launchList');
     let pos = 0;
-    const speed = 0.5; // pixels per frame
+    const speed = 0.6;
 
     function scroll() {
         pos += speed;
         const halfHeight = list.scrollHeight / 2;
-        if(pos >= halfHeight) pos = 0;
+        if (pos >= halfHeight) pos = 0;
         list.style.transform = `translateY(-${pos}px)`;
         requestAnimationFrame(scroll);
     }
     scroll();
 }
 
-// Auto-update every 10 minutes
-setInterval(buildList, 10*60*1000);
+// Refresh list every 10 minutes
+setInterval(buildList, 10 * 60 * 1000);
 
 // Initial load
 buildList();
