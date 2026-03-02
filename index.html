@@ -17,68 +17,92 @@
     padding: 20px 0;
     font-size: 2.5em;
   }
-  #launchList {
+  #launchWrapper {
+    height: calc(100vh - 80px); /* viewport minus header */
+    overflow: hidden;
     position: relative;
+  }
+  #launchList {
+    position: absolute;
     width: 100%;
   }
   .launch {
     text-align: center;
     font-size: 1.5em;
-    padding: 10px 0;
+    padding: 15px 0;
     border-bottom: 1px solid white;
   }
 </style>
 </head>
 <body>
 <h1>Upcoming SpaceX Launches</h1>
-<div id="launchList"></div>
+<div id="launchWrapper">
+  <div id="launchList"></div>
+</div>
 
 <script>
-// Fetch upcoming launches from SpaceX API
+// Fetch upcoming launches
 async function fetchLaunches() {
-    const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
-    let launches = await res.json();
-    launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
-    return launches;
+    try {
+        const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
+        let launches = await res.json();
+        launches = launches.filter(l => new Date(l.date_utc) > new Date()); // only future launches
+        launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
+        return launches;
+    } catch(e) {
+        console.error("Failed to fetch SpaceX launches:", e);
+        return [];
+    }
 }
 
-// Build and auto-scroll the list
+// Build the list
 async function buildList() {
     const launches = await fetchLaunches();
     const list = document.getElementById('launchList');
-    
-    // Create launch elements
+    list.innerHTML = ''; // clear
+
+    if(launches.length === 0){
+        const div = document.createElement('div');
+        div.className = 'launch';
+        div.textContent = "No upcoming launches found";
+        list.appendChild(div);
+        return;
+    }
+
     launches.forEach(launch => {
         const div = document.createElement('div');
         div.className = 'launch';
-        div.textContent = `${launch.name} - ${new Date(launch.date_utc).toLocaleString()}`;
+        const date = new Date(launch.date_utc);
+        div.textContent = `${launch.name} - ${date.toLocaleString()}`;
         list.appendChild(div);
     });
 
-    // Auto-scroll
-    let scrollPos = 0;
-    const totalHeight = list.scrollHeight;
+    // Duplicate the list for seamless scrolling
+    const listClone = list.cloneNode(true);
+    listClone.id = 'launchListClone';
+    list.appendChild(listClone);
+    
+    autoScroll();
+}
+
+// Auto-scroll function
+function autoScroll() {
+    const wrapper = document.getElementById('launchWrapper');
+    const list = document.getElementById('launchList');
+    let pos = 0;
     const speed = 0.5; // pixels per frame
+
     function scroll() {
-        scrollPos += speed;
-        if(scrollPos > totalHeight) scrollPos = 0;
-        list.style.transform = `translateY(-${scrollPos}px)`;
+        pos += speed;
+        if(pos >= list.scrollHeight / 2) pos = 0; // reset after first half
+        list.style.transform = `translateY(-${pos}px)`;
         requestAnimationFrame(scroll);
     }
     scroll();
-
-    // Auto-update every 10 minutes
-    setInterval(async () => {
-        list.innerHTML = '';
-        const newLaunches = await fetchLaunches();
-        newLaunches.forEach(launch => {
-            const div = document.createElement('div');
-            div.className = 'launch';
-            div.textContent = `${launch.name} - ${new Date(launch.date_utc).toLocaleString()}`;
-            list.appendChild(div);
-        });
-    }, 10*60*1000); // 10 minutes
 }
+
+// Auto-update every 10 minutes
+setInterval(buildList, 10*60*1000);
 
 buildList();
 </script>
