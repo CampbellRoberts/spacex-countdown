@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SpaceX Countdown</title>
+<style>
+  body {
+    background-color: black;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 20%;
+  }
+  h1 { font-size: 3em; }
+  #countdown { font-size: 2em; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Next SpaceX Launch</h1>
+<div id="countdown">Loading...</div>
+
+<script>
+async function fetchLaunch() {
+    const res = await fetch('https://api.spacexdata.com/v4/launches/next');
+    const launch = await res.json();
+    const launchDate = new Date(launch.date_utc);
+
+    function updateCountdown() {
+        const now = new Date();
+        const diff = launchDate - now;
+        if (diff <= 0) {
+            document.getElementById('countdown').innerHTML = "🚀 Launch Happening Now!";
+            return;
+        }
+        const days = Math.floor(diff / (1000*60*60*24));
+        const hours = Math.floor((diff / (1000*60*60)) % 24);
+        const minutes = Math.floor((diff / (1000*60)) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+        document.getElementById('countdown').innerHTML = 
+            `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    setInterval(updateCountdown, 1000);
+}
+fetchLaunch();
+</script>
+</body>
+</html>
