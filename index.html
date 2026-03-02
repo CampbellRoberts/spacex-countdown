@@ -2,47 +2,97 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SpaceX Countdown</title>
+<title>SpaceX Launch Countdown List</title>
 <style>
   body {
     background-color: black;
     color: white;
     font-family: Arial, sans-serif;
-    text-align: center;
-    margin-top: 20%;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
   }
-  h1 { font-size: 3em; }
-  #countdown { font-size: 2em; margin-top: 20px; }
+  h1 { text-align: center; margin: 20px 0; font-size: 3em; }
+  #launchList {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin: 0 auto;
+    width: 90%;
+    max-width: 800px;
+    position: relative;
+    top: 0;
+  }
+  .launch {
+    padding: 15px;
+    border: 1px solid white;
+    border-radius: 8px;
+    font-size: 1.5em;
+    background-color: rgba(255,255,255,0.05);
+  }
 </style>
 </head>
 <body>
-<h1>Next SpaceX Launch</h1>
-<div id="countdown">Loading...</div>
+<h1>Upcoming SpaceX Launches</h1>
+<div id="launchList"></div>
 
 <script>
-async function fetchLaunch() {
-    const res = await fetch('https://api.spacexdata.com/v4/launches/next');
-    const launch = await res.json();
-    const launchDate = new Date(launch.date_utc);
-
-    function updateCountdown() {
-        const now = new Date();
-        const diff = launchDate - now;
-        if (diff <= 0) {
-            document.getElementById('countdown').innerHTML = "🚀 Launch Happening Now!";
-            return;
-        }
-        const days = Math.floor(diff / (1000*60*60*24));
-        const hours = Math.floor((diff / (1000*60*60)) % 24);
-        const minutes = Math.floor((diff / (1000*60)) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
-        document.getElementById('countdown').innerHTML = 
-            `${days}d ${hours}h ${minutes}m ${seconds}s`;
-    }
-
-    setInterval(updateCountdown, 1000);
+// Fetch upcoming launches from SpaceX API
+async function fetchLaunches() {
+  const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
+  const launches = await res.json();
+  // Sort by date ascending
+  launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
+  return launches;
 }
-fetchLaunch();
+
+// Format countdown
+function formatCountdown(ms) {
+  const total = ms;
+  const days = Math.floor(total / (1000*60*60*24));
+  const hours = Math.floor((total / (1000*60*60)) % 24);
+  const minutes = Math.floor((total / (1000*60)) % 60);
+  const seconds = Math.floor((total / 1000) % 60);
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+// Build the scrolling list
+async function buildList() {
+  const launches = await fetchLaunches();
+  const list = document.getElementById('launchList');
+
+  launches.forEach(launch => {
+    const div = document.createElement('div');
+    div.className = 'launch';
+    div.dataset.date = launch.date_utc;
+    div.innerHTML = `<strong>${launch.name}</strong><br><span class="countdown">Loading...</span>`;
+    list.appendChild(div);
+  });
+
+  // Auto-scroll + update countdowns
+  let scrollPos = 0;
+  const lineHeight = 130; // approx height of each launch div + gap
+  const totalScroll = lineHeight * launches.length;
+
+  setInterval(() => {
+    const now = new Date();
+    const launchDivs = document.querySelectorAll('.launch');
+
+    launchDivs.forEach(div => {
+      const date = new Date(div.dataset.date);
+      const diff = date - now;
+      const cdSpan = div.querySelector('.countdown');
+      cdSpan.textContent = diff > 0 ? formatCountdown(diff) : "🚀 Launch Happening Now!";
+    });
+
+    // Scroll
+    scrollPos += 1;
+    if(scrollPos > totalScroll) scrollPos = 0;
+    list.style.top = `-${scrollPos}px`;
+  }, 1000);
+}
+
+buildList();
 </script>
 </body>
 </html>
