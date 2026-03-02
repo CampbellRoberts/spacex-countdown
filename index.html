@@ -2,33 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SpaceX Launch Countdown List</title>
+<title>SpaceX Upcoming Launches</title>
 <style>
   body {
     background-color: black;
     color: white;
     font-family: Arial, sans-serif;
-    overflow: hidden;
     margin: 0;
     padding: 0;
+    overflow: hidden;
   }
-  h1 { text-align: center; margin: 20px 0; font-size: 3em; }
+  h1 {
+    text-align: center;
+    padding: 20px 0;
+    font-size: 2.5em;
+  }
   #launchList {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    margin: 0 auto;
-    width: 90%;
-    max-width: 800px;
     position: relative;
-    top: 0;
+    width: 100%;
   }
   .launch {
-    padding: 15px;
-    border: 1px solid white;
-    border-radius: 8px;
+    text-align: center;
     font-size: 1.5em;
-    background-color: rgba(255,255,255,0.05);
+    padding: 10px 0;
+    border-bottom: 1px solid white;
   }
 </style>
 </head>
@@ -39,57 +36,48 @@
 <script>
 // Fetch upcoming launches from SpaceX API
 async function fetchLaunches() {
-  const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
-  const launches = await res.json();
-  // Sort by date ascending
-  launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
-  return launches;
+    const res = await fetch('https://api.spacexdata.com/v4/launches/upcoming');
+    let launches = await res.json();
+    launches.sort((a,b) => new Date(a.date_utc) - new Date(b.date_utc));
+    return launches;
 }
 
-// Format countdown
-function formatCountdown(ms) {
-  const total = ms;
-  const days = Math.floor(total / (1000*60*60*24));
-  const hours = Math.floor((total / (1000*60*60)) % 24);
-  const minutes = Math.floor((total / (1000*60)) % 60);
-  const seconds = Math.floor((total / 1000) % 60);
-  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-}
-
-// Build the scrolling list
+// Build and auto-scroll the list
 async function buildList() {
-  const launches = await fetchLaunches();
-  const list = document.getElementById('launchList');
-
-  launches.forEach(launch => {
-    const div = document.createElement('div');
-    div.className = 'launch';
-    div.dataset.date = launch.date_utc;
-    div.innerHTML = `<strong>${launch.name}</strong><br><span class="countdown">Loading...</span>`;
-    list.appendChild(div);
-  });
-
-  // Auto-scroll + update countdowns
-  let scrollPos = 0;
-  const lineHeight = 130; // approx height of each launch div + gap
-  const totalScroll = lineHeight * launches.length;
-
-  setInterval(() => {
-    const now = new Date();
-    const launchDivs = document.querySelectorAll('.launch');
-
-    launchDivs.forEach(div => {
-      const date = new Date(div.dataset.date);
-      const diff = date - now;
-      const cdSpan = div.querySelector('.countdown');
-      cdSpan.textContent = diff > 0 ? formatCountdown(diff) : "🚀 Launch Happening Now!";
+    const launches = await fetchLaunches();
+    const list = document.getElementById('launchList');
+    
+    // Create launch elements
+    launches.forEach(launch => {
+        const div = document.createElement('div');
+        div.className = 'launch';
+        div.textContent = `${launch.name} - ${new Date(launch.date_utc).toLocaleString()}`;
+        list.appendChild(div);
     });
 
-    // Scroll
-    scrollPos += 1;
-    if(scrollPos > totalScroll) scrollPos = 0;
-    list.style.top = `-${scrollPos}px`;
-  }, 1000);
+    // Auto-scroll
+    let scrollPos = 0;
+    const totalHeight = list.scrollHeight;
+    const speed = 0.5; // pixels per frame
+    function scroll() {
+        scrollPos += speed;
+        if(scrollPos > totalHeight) scrollPos = 0;
+        list.style.transform = `translateY(-${scrollPos}px)`;
+        requestAnimationFrame(scroll);
+    }
+    scroll();
+
+    // Auto-update every 10 minutes
+    setInterval(async () => {
+        list.innerHTML = '';
+        const newLaunches = await fetchLaunches();
+        newLaunches.forEach(launch => {
+            const div = document.createElement('div');
+            div.className = 'launch';
+            div.textContent = `${launch.name} - ${new Date(launch.date_utc).toLocaleString()}`;
+            list.appendChild(div);
+        });
+    }, 10*60*1000); // 10 minutes
 }
 
 buildList();
